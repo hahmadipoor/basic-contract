@@ -3,32 +3,31 @@ const hre=require("hardhat");
 const { getSigner, getProvider, getAccountOtherThanDeployer } = require("./utils");
 const {ethers} =require("hardhat")
 
-let deployer;
-let provider;
 
-async function deploy() {
-    const SimpleFactory = await ethers.getContractFactory("Simple");
-    simpleContract = await SimpleFactory.deploy("hossein", { value: 5 });
-    const transactionReceipt = await simpleContract.deploymentTransaction().wait(1);
-    return transactionReceipt;
-}
 
 describe("Simple", function () {
 
+  let deployer;
+  let provider;
+  let deployerBalanceBefore;
+  let txDeployReceipt;
+
   before(async () => {
       deployer=await getSigner(hre.network.name);
-      provider=getProvider(hre.network.name)
-    });
+      provider=getProvider(hre.network.name);
+      deployerBalanceBefore=await provider.getBalance(deployer.address);
+      const SimpleFactory = await ethers.getContractFactory("Simple");
+      simpleContract = await SimpleFactory.deploy("hossein", { value: 5 });
+      txDeployReceipt = await simpleContract.deploymentTransaction().wait(1);
+  });
 
   describe("Deployment", function () {
   
-    it("should send the deployment transaction to the network", async function () {
+    it("contract should be deployed before", async function () {
       
-      const deployerBalanceBefore=await provider.getBalance(deployer.address);
-      const transactionReceipt = await deploy();
       const deployerBalanceAfter=await provider.getBalance(deployer.address);
-      expect(transactionReceipt.from).to.equal(deployer.address);
-      const contractBalance=await provider.getBalance(transactionReceipt.contractAddress);
+      expect(txDeployReceipt.from).to.equal(deployer.address);
+      const contractBalance=await provider.getBalance(txDeployReceipt.contractAddress);
       expect(contractBalance).to.be.gte(5);
       if(hre.network.name!="localhost"){//only for sepolia and mainnet, not for local
         expect(deployerBalanceAfter).to.be.lt(deployerBalanceBefore);     
@@ -37,19 +36,57 @@ describe("Simple", function () {
     });
   });
 
-  describe("getName function", function () {
-    it("should return correct name", async function () {
+  describe("public state variables ", function() {
 
-        const transactionReceipt = await deploy(); 
-        simpleContract=await ethers.getContractAt("Simple", transactionReceipt.contractAddress);
+    it("owner shuld not be null", async function () {
+
+      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
+      await expect(simpleContract.owner()).not.to.equal(null);
+    });
+  });
+
+  describe("setAge function", function() {
+
+    it("When changing age, has to pay", async function () {
+
+      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
+      await expect(simpleContract.changeAge(42,{value:5})).to.emit(simpleContract, "AgeSet").withArgs(42);
+    });
+
+    it("changing age without pay, should revert", async function () {
+
+      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
+      user = await getAccountOtherThanDeployer(hre.network.name);
+      await expect(simpleContract.changeAge(42)).to.be.reverted;
+      //Custom Error
+      await expect(simpleContract.changeAge(42)).to.be.revertedWithCustomError(simpleContract,"NotPayed");
+    });
+  });
+
+  describe("getAge function", function() {
+
+    it("should return age", async function () {
+
+      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
+      await simpleContract.changeAge(42,{value:5}); //42 is the age, 5 is the msg.value we send
+      const age=await simpleContract.getAge(); // Convertig the returned value to human readable number
+      expect(Number(age)).to.equal(42);
+    });
+
+  });
+
+  describe("getName function", function () {
+  
+    it("should return correct name", async function () {
+        
+        simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
         const name=await simpleContract.getName();
         expect(name).to.be.equal("hossein");
     });
 
     it("should return correct owner address", async function () {
 
-      const transactionReceipt = await deploy(); 
-      simpleContract=await ethers.getContractAt("Simple", transactionReceipt.contractAddress);
+      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
       const ownerAddress=await simpleContract.owner();
       expect(ownerAddress).to.be.equal(deployer);
     });
@@ -59,21 +96,16 @@ describe("Simple", function () {
 
       it("When owner modifies name the contract should emit event", async function () {
 
-        const transactionReceipt = await deploy(); 
-        simpleContract=await ethers.getContractAt("Simple", transactionReceipt.contractAddress);
-      
+        simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
         await expect(simpleContract.changeName("ali")).to.emit(simpleContract, "NameSet").withArgs("ali");
       });
   
       it("No one other owner can modify the name", async function () {
   
-        const transactionReceipt = await deploy(); 
-        simpleContract=await ethers.getContractAt("Simple", transactionReceipt.contractAddress);
-        // accounts = await ethers.getSigners() 
-        // user = accounts[1];
+        simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
         user = await getAccountOtherThanDeployer(hre.network.name);
-        console.log("user",user);
         await expect(simpleContract.connect(user).changeName("ali")).to.be.revertedWith("NotOwner")
       });
-  })
+   })
+
 });
