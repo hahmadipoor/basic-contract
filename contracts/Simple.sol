@@ -38,6 +38,18 @@ contract Simple is ReentrancyGuard {
         return newAge_;
     }
 
+    function withdraw() external {
+
+        require(msg.sender==owner, "NotOwner"); //It's recommended to use onlyOnwer modifier
+        require(address(this).balance>0, "balance is zero");
+        (bool success, ) = payable(msg.sender).call{value: address(this).balance}("");
+        // The 'call' is used to call public and external functions on contracts. 
+        // It can also be used to transfer ether to addresses. But it's not recommended
+        // Instead the 'transfer' approach is recomened for transfering money
+        // payable(msg.sender).transfer(address(this).balance);
+        require(success, "Transfer failed");
+    }
+
     function getAge() public view returns (uint8){
         
         return _age;
@@ -55,7 +67,5 @@ contract Simple is ReentrancyGuard {
         emit NameSet(newName_);
         return newName_;
     }
-
-
 
 }
