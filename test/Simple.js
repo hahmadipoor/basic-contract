@@ -3,8 +3,6 @@ const hre=require("hardhat");
 const { getSigner, getProvider, getAccountOtherThanDeployer } = require("./utils");
 const {ethers} =require("hardhat")
 
-
-
 describe("Simple", function () {
 
   let deployer;
@@ -13,8 +11,8 @@ describe("Simple", function () {
   let txDeployReceipt;
 
   before(async () => {
-      deployer=await getSigner(hre.network.name);
       provider=getProvider(hre.network.name);
+      deployer=await getSigner(provider);
       deployerBalanceBefore=await provider.getBalance(deployer.address);
       const SimpleFactory = await ethers.getContractFactory("Simple");
       simpleContract = await SimpleFactory.deploy("hossein", { value: 5 });
@@ -29,20 +27,22 @@ describe("Simple", function () {
       const deployerBalanceAfter=await provider.getBalance(deployer.address);
       expect(txDeployReceipt.from).to.equal(deployer.address);
       const contractBalance=await provider.getBalance(txDeployReceipt.contractAddress);
-      expect(contractBalance).to.be.gte(5);
+      expect(contractBalance).to.be.equal(5);
       if(hre.network.name!="localhost"){//only for sepolia and mainnet, not for local
         expect(deployerBalanceAfter).to.be.lt(deployerBalanceBefore);     
-      }
-      
+      }      
     });
+    
+    
   });
 
   describe("public state variables ", function() {
 
-    it("owner shuld not be null", async function () {
+    it("owner of the contract should be the deployer", async function () {
 
-      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
-      await expect(simpleContract.owner()).not.to.equal(null);
+      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);      
+      expect(await simpleContract.owner()).to.equal(deployer.address);
+
     });
   });
 
@@ -111,13 +111,6 @@ describe("Simple", function () {
         simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
         const name=await simpleContract.getName();
         expect(name).to.be.equal("hossein");
-    });
-
-    it("should return correct owner address", async function () {
-
-      simpleContract=await ethers.getContractAt("Simple", txDeployReceipt.contractAddress);
-      const ownerAddress=await simpleContract.owner();
-      expect(ownerAddress).to.be.equal(deployer);
     });
   })  
   
