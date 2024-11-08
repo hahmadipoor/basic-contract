@@ -16,6 +16,7 @@ contract Simple is ReentrancyGuard {
 
     event NameSet(string name);
     event AgeSet(uint8 age);
+    event ReceivedMoney(uint256 amount);
     
     modifier isPayable(){
         if(msg.value<=0){
@@ -25,6 +26,7 @@ contract Simple is ReentrancyGuard {
     }
 
     constructor(string  memory name_) payable {
+        
         _name=name_;
         owner=msg.sender;
     }
@@ -44,9 +46,12 @@ contract Simple is ReentrancyGuard {
         require(address(this).balance>0, "balance is zero");
         (bool success, ) = payable(msg.sender).call{value: address(this).balance}("");
         // The 'call' is used to call public and external functions on contracts. 
-        // It can also be used to transfer ether to addresses. But it's not recommended
-        // Instead the 'transfer' approach is recomened for transfering money
+        // It can also be used to transfer ether to an account, which happens when we dont specifying a function name in the Parentheses 
+        // But it's not safe, because it bypasses type checking, function existence checking, and argument checking.
+        // If the receiver account is a contract, the fallback/receive function of it will be called 
+        // Which can cause Reentrancy attack. One solution is to use 'transfer' or 'send' instead, as shown in the following line
         // payable(msg.sender).transfer(address(this).balance);
+        // payable(msg.sender).send(address(this).balance);
         require(success, "Transfer failed");
     }
 
@@ -67,5 +72,4 @@ contract Simple is ReentrancyGuard {
         emit NameSet(newName_);
         return newName_;
     }
-
 }

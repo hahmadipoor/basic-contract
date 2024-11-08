@@ -75,7 +75,7 @@ describe("Simple", function () {
       const contractBalanceBeforeWithdraw=await provider.getBalance(txDeployReceipt.contractAddress);
       tx=await simpleContract.withdraw();
       txResponse=await tx.wait(1); 
-      const { gasUsed, gasPrice }=txResponse;
+      const { gasUsed, cumulativeGasUsed, gasPrice }=txResponse;
       const gasCost = Number(gasUsed)*Number(gasPrice);
       const deployerBalanceAfterWithdraw=await provider.getBalance(deployer);
       expect(Number(deployerBalanceAfterWithdraw)).to.be
