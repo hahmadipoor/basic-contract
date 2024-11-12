@@ -122,6 +122,10 @@ describe("Simple", function () {
         if(hre.network.name!="sepolia"){//events don't work on sepolia
           await expect(simpleContract.changeName("ali")).to.emit(simpleContract, "NameSet").withArgs("ali");
         }
+        const tx=await simpleContract.changeName("omid");
+        const txResponse=await tx.wait(1);
+        const [newName]=txResponse.logs[0].args;
+        expect(newName).to.equal("omid");
       });
   
       it("No one other owner can modify the name", async function () {
